@@ -1,66 +1,115 @@
 # SC4 Mod Migration Assistant
 
-WPF application (.NET 9, Windows) that finds and moves duplicate files (matched by TGI)
-found inside the `075-my-plugins` and `895-my-overrides` folders of a SimCity 4 `Plugins`
-folder, using the **csDBPF** library.
+A Windows desktop tool for SimCity 4 modders. It scans your `Plugins` folder and flags files
+in your `075-my-plugins` and `895-my-overrides` folders that duplicate content already present
+elsewhere in `Plugins`, so you can safely move them out of the way.
 
-## 1. Add the csDBPF.dll reference
+Built with WPF (.NET 10) and [csDBPF](https://github.com/noah-severyn/csDBPF) for reading SimCity 4's DBPF
+file format.
 
-This project was built with only the `csDBPF.xml` documentation file available, not the
-compiled DLL. Before building:
+## Features
 
-1. Copy `csDBPF.dll` (built for a compatible target, e.g. net8.0/net9.0) into this
-   project's `libs/` folder, so you end up with `libs\csDBPF.dll`.
-2. (Optional but recommended) also copy `csDBPF.xml` into `libs/` for IntelliSense.
-3. If the DLL depends on other assemblies (e.g. `DBPFSharp.dll` for QFS
-   compression, referenced in the XML docs), copy those into `libs/` too and add a
-   matching `<Reference>` in `SC4ModMigrationAssistant.csproj` — or, if csDBPF is
-   available as a NuGet package, replace the `<Reference>` tag with a regular
-   `<PackageReference Include="csDBPF" Version="x.y.z" />`.
+- Recursively scans a Plugins folder for `.dat`, `.sc4lot`, `.sc4model`, and `.sc4desc` files
+- Detects duplicate content by comparing TGI (Type-Group-Instance) identifiers
+- Automatically excludes non-content bookkeeping TGI entries (e.g. the DBPF directory record)
+  that would otherwise cause false positives
+- Extra file-name check for `895-my-overrides`, since that folder is meant to hold intentional
+  overrides that share a TGI with the original file by design
+- Low memory footprint, suitable for machines with as little as 4–8 GB of RAM
+- Live, color-coded log and progress bars for both the scan and the comparison step
+- Moves (never deletes) duplicates to a folder of your choice, preserving the original
+  subfolder structure
+- Cancel support for long-running scans
 
-If the DLL lives somewhere else, update `HintPath` in the `.csproj`:
+## Screenshots
 
-```xml
-<Reference Include="csDBPF">
-  <HintPath>libs\csDBPF.dll</HintPath>
-</Reference>
+*(add screenshots here)*
+
+## Requirements
+
+- Windows 10/11
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) to build, or the .NET 10 Desktop Runtime
+  to run a published build
+- `csDBPF.dll` — see [Setup](#setup) below
+
+## Setup
+
+1. Clone this repository.
+2. Obtain `csDBPF.dll` and place it in the `libs/` folder at the project root, so you have
+   `libs/csDBPF.dll`. If it's available as a NuGet package instead, replace the `<Reference>`
+   entry in `SC4ModMigrationAssistant.csproj` with a `<PackageReference>`.
+3. Build and run:
+
+   ```bash
+   dotnet build
+   dotnet run
+   ```
+
+## Usage
+
+1. **Browse...** – select your SimCity 4 `Plugins` folder (the one containing
+   `075-my-plugins` and `895-my-overrides`).
+2. **Scan TGIs** – scans the whole folder tree and identifies duplicates. Files are
+   color-coded by origin, and detected duplicates are highlighted.
+3. **Move Duplicates** – choose a destination folder; all detected duplicates are moved there
+   (with their relative subfolder structure preserved), freeing them from `Plugins` without
+   permanently deleting anything.
+
+## How duplicate detection works
+
+A file inside `075-my-plugins` is flagged as a duplicate if it shares at least one TGI with a
+file in the main `Plugins` folder.
+
+A file inside `895-my-overrides` is flagged as a duplicate only if **both** are true:
+
+- it shares at least one TGI with a file in `Plugins`, **and**
+- a file with the same name already exists in `Plugins`.
+
+This extra check exists because `895-my-overrides` is meant to hold intentional overrides,
+which by design share a TGI with the file they replace — a TGI match alone there is expected,
+not a mistake.
+
+Duplicates are only ever compared against the main `Plugins` folder; files within
+`075-my-plugins` and `895-my-overrides` are never compared against each other.
+
+## Configuration
+
+A few constants in `Services/DbpfScanService.cs` can be adjusted:
+
+| Constant | Purpose | Default |
+|---|---|---|
+| `DbpfExtensions` | File extensions treated as DBPF files | `.dat`, `.sc4lot`, `.sc4model`, `.sc4desc` |
+| `Overrides075FolderName` / `Overrides895FolderName` | Override folder names to look for | `075-my-plugins`, `895-my-overrides` |
+| `ExcludedTgis` | TGIs excluded from comparison as non-content entries | DBPF Directory record, default LD entry |
+| `ProgressReportInterval` | How often the scan progress bar updates | every 100 files |
+
+## Project structure
+
+```
+SC4ModMigrationAssistant.csproj
+App.xaml / App.xaml.cs
+MainWindow.xaml / MainWindow.xaml.cs
+LogEntryView.cs
+Models/
+  SourceCategory.cs
+  TgiKey.cs
+  ScannedFile.cs
+  LogColor.cs
+Services/
+  DbpfScanService.cs
+  DuplicateMoverService.cs
+libs/
 ```
 
-## 2. Build & run
+## Contributing
 
-```
-dotnet build
-dotnet run
-```
+Issues and pull requests are welcome.
 
-(Requires the .NET 9 SDK with the Windows Desktop workload installed.)
+## License
 
-## 4. How it works
+*(add a license of your choice, e.g. MIT)*
 
-1. **Browse...** — select the `Plugins` folder (the one that contains the
-   `075-my-plugins` and `895-my-overrides` subfolders).
-2. **Scan TGIs**:
-   - Recursively scans `Plugins`, **excluding** `075-my-plugins` and
-     `895-my-overrides` — every file read (`.dat`, `.sc4lot`, `.sc4model`,
-     `.sc4desc`) is logged in **black** with its TGI count.
-   - Scans `075-my-plugins` — files logged in **blue**. A file here is flagged as a
-     **duplicate** (logged in **red**) if it shares at least one (non-excluded - see
-     section 5) TGI with a file in `Plugins`. It is never compared against
-     `895-my-overrides`, nor against other files inside `075-my-plugins` itself.
-   - Scans `895-my-overrides` — files logged in **blue**. A file here is only flagged as a
-     duplicate if **both** conditions hold against `Plugins` specifically: it shares a TGI
-     with a `Plugins` file, **and** a file with the same name (case-insensitive) exists in
-     `Plugins`. See section 6 for why 895 needs the extra name check, and section 7 for why
-     the comparison is scoped only to `Plugins`.
-   - The progress bar and the "X / Y files" counter update every 100 files
-     processed (see `DbpfScanService.ProgressReportInterval`).
-3. **Move Duplicates** — asks for a destination folder and physically moves every
-   file flagged as a duplicate there, keeping the relative subfolder structure
-   (to avoid name collisions and make it easy to trace a file back to its
-   origin). Each move is logged in red; errors (file in use, permissions, etc.)
-   are logged in orange and don't stop the remaining moves.
+## Disclaimer
 
-General status/warning messages are logged in gray; files that could not be read
-as valid DBPF are logged in orange and skipped.
-
-A **Cancel** button is available while a scan or move is running.
+This tool moves files out of your Plugins folder based on automated heuristics. Back up your
+Plugins folder before running it, and review the log before moving files if you're unsure.

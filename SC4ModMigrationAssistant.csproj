@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SC4ModMigrationAssistant</AssemblyName>
+    <RootNamespace>SC4ModMigrationAssistant</RootNamespace>
+	<ApplicationIcon>Assets\SC4ModMigrationAssistant.ico</ApplicationIcon>
+    <LangVersion>latest</LangVersion>
+    <ApplicationTitle>SC4 Mod Migration Assistant</ApplicationTitle>
+
+    <!--
+      Explicit GC settings: Workstation GC (not Server GC, which allocates one heap per CPU
+      core and can use significantly more peak memory) with background (concurrent)
+      collection enabled. This matters for machines with only 4-8 GB of RAM, which is an
+      explicit target for this application.
+    -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Reference to csDBPF.dll.
+      Copy csDBPF.dll (and optionally csDBPF.xml) into the "libs" folder next to
+      this .csproj file, or update the HintPath below to point to the DLL's
+      location on your system.
+    -->
+    <Reference Include="csDBPF">
+      <HintPath>libs\csDBPF.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

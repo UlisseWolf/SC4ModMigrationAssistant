@@ -125,6 +125,7 @@ The catalog download URL and local cache path are in
 
 ```
 SC4ModMigrationAssistant.csproj
+LICENSE
 App.xaml / App.xaml.cs
 MainWindow.xaml / MainWindow.xaml.cs
 LogEntryView.cs
@@ -149,7 +150,9 @@ Issues and pull requests are welcome.
 
 ## License
 
-*(add a license of your choice, e.g. MIT)*
+This project is licensed under the [MIT License](LICENSE) — the same license used by
+[csDBPF](https://github.com/noah-severyn/csDBPF), the library it depends on to read SimCity 4's
+DBPF file format.
 
 ## Disclaimer
 

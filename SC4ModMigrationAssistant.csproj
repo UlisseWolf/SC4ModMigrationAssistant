@@ -23,6 +23,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Used to read Catalog.db (the SC4 Prop Texture Catalog) once downloaded from GitHub. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <!--
+      Microsoft.Data.Sqlite currently pulls in SQLitePCLRaw.lib.e_sqlite3 2.1.11, which bundles
+      a SQLite version affected by CVE-2025-6965 (NU1903 warning on build). Microsoft hasn't
+      shipped a fix for this transitively yet, so the native SQLite build is pinned directly
+      here to a patched version until they do. If "dotnet list package" (run with its
+      vulnerable-packages flag) still flags this after an update, bump the version below to
+      whatever is currently newest.
+    -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!--
       Reference to csDBPF.dll.
       Copy csDBPF.dll (and optionally csDBPF.xml) into the "libs" folder next to

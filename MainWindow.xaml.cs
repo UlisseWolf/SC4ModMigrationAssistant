@@ -2,10 +2,12 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -20,8 +22,10 @@ public partial class MainWindow : Window
 {
     private readonly DbpfScanService _scanService = new();
     private readonly DuplicateMoverService _moverService = new();
+    private readonly Sc4pacLookupService _catalogLookupService;
 
     private readonly ObservableCollection<LogEntryView> _logEntries = new();
+    private readonly ObservableCollection<Sc4pacMatch> _catalogMatches = new();
     private readonly ConcurrentQueue<LogMessage> _pendingLog = new();
     private readonly DispatcherTimer _logFlushTimer;
 
@@ -39,7 +43,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _catalogLookupService = new Sc4pacLookupService(_scanService);
         LogListBox.ItemsSource = _logEntries;
+        CatalogResultsListBox.ItemsSource = _catalogMatches;
         TryEnableDarkTitleBar();
 
         // Log lines are enqueued from the background scan thread (cheap, thread-safe, no UI
@@ -67,8 +73,11 @@ public partial class MainWindow : Window
             TxtPluginsPath.Text = _pluginsRoot;
             BtnScan.IsEnabled = true;
             BtnMoveDuplicates.IsEnabled = false;
+            BtnCheckCatalog.IsEnabled = true;
             _lastScanResult = null;
             _logEntries.Clear();
+            _catalogMatches.Clear();
+            CatalogResultsPanel.Visibility = Visibility.Collapsed;
             ProgressBarScan.Value = 0;
             TxtProgressCount.Text = string.Empty;
             ResetCompareProgress();
@@ -191,6 +200,128 @@ public partial class MainWindow : Window
         BtnCancel.IsEnabled = false;
     }
 
+    private async void BtnCheckCatalog_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_pluginsRoot))
+        {
+            MessageBox.Show(this, "Please select the Plugins folder first.", "Warning",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        _logEntries.Clear();
+        _catalogMatches.Clear();
+        CatalogResultsPanel.Visibility = Visibility.Collapsed;
+        ProgressBarScan.IsIndeterminate = true;
+        ProgressBarScan.Value = 0;
+        TxtProgressCount.Text = string.Empty;
+        ResetCompareProgress();
+        _cts = new CancellationTokenSource();
+        SetBusy(true, "Checking sc4pac catalog...");
+
+        Action<LogMessage> log = msg => _pendingLog.Enqueue(msg);
+        var scanProgress = new Progress<ScanProgress>(OnScanProgress);
+
+        try
+        {
+            List<Sc4pacMatch> matches = await _catalogLookupService.CheckCatalogAsync(_pluginsRoot!, log, scanProgress, _cts.Token);
+
+            FlushLogQueue();
+
+            foreach (Sc4pacMatch match in matches)
+            {
+                _catalogMatches.Add(match);
+            }
+            CatalogResultsPanel.Visibility = matches.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            TxtStatus.Text = matches.Count > 0
+                ? $"{matches.Count} sc4pac package(s) found for your override files."
+                : "No matching sc4pac packages found.";
+        }
+        catch (OperationCanceledException)
+        {
+            FlushLogQueue();
+            AppendLogImmediate(new LogMessage("Catalog check cancelled by the user.", LogColor.Orange));
+            TxtStatus.Text = "Catalog check cancelled.";
+        }
+        catch (Exception ex)
+        {
+            FlushLogQueue();
+            AppendLogImmediate(new LogMessage($"Error during catalog check: {ex.Message}", LogColor.Orange));
+            MessageBox.Show(this, ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            ProgressBarScan.IsIndeterminate = false;
+            SetBusy(false, TxtStatus.Text);
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void BtnCopyPackageId_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: Sc4pacMatch match })
+        {
+            TryCopyToClipboard(match.PackageId);
+            TxtStatus.Text = $"Copied package ID: {match.PackageId}";
+        }
+    }
+
+    private void BtnCopyAddCommand_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: Sc4pacMatch match })
+        {
+            TryCopyToClipboard(match.Sc4pacAddCommand);
+            TxtStatus.Text = $"Copied: {match.Sc4pacAddCommand}";
+        }
+    }
+
+    private void BtnOpenPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: Sc4pacMatch { PageUrl: { Length: > 0 } url } })
+        {
+            return;
+        }
+
+        try
+        {
+            // UseShellExecute=true opens the URL with the OS's default browser, same as
+            // double-clicking a link - this project never launches a specific browser directly.
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Could not open the page:\n{ex.Message}", "Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    /// <summary>
+    /// Clipboard.SetText can intermittently throw COMException if another process briefly holds
+    /// the clipboard (common on Windows) - retrying once after a short delay, as recommended
+    /// practice, instead of letting a transient failure surface as an error to the user.
+    /// </summary>
+    private static void TryCopyToClipboard(string text)
+    {
+        try
+        {
+            Clipboard.SetText(text);
+        }
+        catch (Exception)
+        {
+            try
+            {
+                System.Threading.Thread.Sleep(100);
+                Clipboard.SetText(text);
+            }
+            catch
+            {
+                // Give up silently - copying to the clipboard is a convenience, not essential.
+            }
+        }
+    }
+
     private void OnScanProgress(ScanProgress p)
     {
         ProgressBarScan.IsIndeterminate = false;
@@ -274,6 +405,7 @@ public partial class MainWindow : Window
         BtnBrowse.IsEnabled = !busy;
         BtnScan.IsEnabled = !busy && !string.IsNullOrWhiteSpace(_pluginsRoot);
         BtnMoveDuplicates.IsEnabled = !busy && _lastScanResult is { } r && r.Duplicates.Count > 0;
+        BtnCheckCatalog.IsEnabled = !busy && !string.IsNullOrWhiteSpace(_pluginsRoot);
         BtnCancel.IsEnabled = busy;
         TxtStatus.Text = status;
         Mouse.OverrideCursor = busy ? Cursors.Arrow : null;

@@ -241,6 +241,114 @@ public sealed class DbpfScanService
     }
 
     /// <summary>
+    /// Scans only 075-my-plugins and 895-my-overrides (never the main Plugins folder) and
+    /// returns every file found together with its full, deduplicated set of TGIs. Used by the
+    /// "Check sc4pac Catalog" feature, which needs the actual TGIs (not just match counts) to
+    /// look them up in the SC4 Prop Texture Catalog.
+    /// </summary>
+    /// <param name="pluginsRoot">Full path of the Plugins folder (must contain the two override subfolders).</param>
+    /// <param name="log">Callback invoked (from a background thread) for every log line produced.</param>
+    /// <param name="scanProgress">Callback invoked at most every <see cref="ProgressReportInterval"/> files.</param>
+    /// <param name="token">Cancellation token, checked between files.</param>
+    public List<CatalogScanFile> ScanOverrideFoldersForCatalog(
+        string pluginsRoot,
+        Action<LogMessage> log,
+        IProgress<ScanProgress> scanProgress,
+        CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(pluginsRoot) || !Directory.Exists(pluginsRoot))
+        {
+            throw new DirectoryNotFoundException($"Plugins folder not found: {pluginsRoot}");
+        }
+
+        string? overrides075Path = FindChildFolder(pluginsRoot, Overrides075FolderName);
+        string? overrides895Path = FindChildFolder(pluginsRoot, Overrides895FolderName);
+
+        var results = new List<CatalogScanFile>();
+
+        int total = 0;
+        if (overrides075Path != null) total += CountFiles(overrides075Path, new List<string>(), token);
+        if (overrides895Path != null) total += CountFiles(overrides895Path, new List<string>(), token);
+
+        int processed = 0;
+        scanProgress.Report(new ScanProgress(0, total));
+
+        void OnFileProcessed()
+        {
+            processed++;
+            if (processed % ProgressReportInterval == 0 || processed == total)
+            {
+                scanProgress.Report(new ScanProgress(processed, total));
+            }
+        }
+
+        void ScanFolder(string folderPath, SourceCategory category)
+        {
+            foreach (string filePath in EnumerateFilesExcluding(folderPath, new List<string>(), token))
+            {
+                token.ThrowIfCancellationRequested();
+
+                string relativePath = Path.GetRelativePath(pluginsRoot, filePath);
+
+                HashSet<TgiKey> fileTgis;
+                try
+                {
+                    var dbpf = new DBPFFile(filePath);
+                    fileTgis = new HashSet<TgiKey>();
+                    foreach (TGI tgi in dbpf.ListOfTGIs)
+                    {
+                        var key = new TgiKey(tgi.TypeID, tgi.GroupID, tgi.InstanceID);
+                        if (!ExcludedTgis.Contains(key))
+                        {
+                            fileTgis.Add(key);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Invoke(new LogMessage($"[SKIP] {relativePath} - could not be read as DBPF ({ex.Message})", LogColor.Orange));
+                    OnFileProcessed();
+                    continue;
+                }
+
+                results.Add(new CatalogScanFile
+                {
+                    FullPath = filePath,
+                    RelativePath = relativePath,
+                    Category = category,
+                    Tgis = fileTgis
+                });
+
+                log.Invoke(new LogMessage($"{relativePath}  ({fileTgis.Count} TGI)", LogColor.Blue));
+                OnFileProcessed();
+            }
+        }
+
+        if (overrides075Path != null)
+        {
+            log.Invoke(new LogMessage($"--- Scanning {Overrides075FolderName} folder ---", LogColor.Gray));
+            ScanFolder(overrides075Path, SourceCategory.Overrides075);
+        }
+        else
+        {
+            log.Invoke(new LogMessage($"{Overrides075FolderName} folder not found, skipped.", LogColor.Orange));
+        }
+
+        if (overrides895Path != null)
+        {
+            log.Invoke(new LogMessage($"--- Scanning {Overrides895FolderName} folder ---", LogColor.Gray));
+            ScanFolder(overrides895Path, SourceCategory.Overrides895);
+        }
+        else
+        {
+            log.Invoke(new LogMessage($"{Overrides895FolderName} folder not found, skipped.", LogColor.Orange));
+        }
+
+        scanProgress.Report(new ScanProgress(total, total));
+        return results;
+    }
+
+    /// <summary>
     /// Reads a single DBPF file's TGIs directly into <paramref name="destination"/> (no
     /// intermediate per-file collection is kept), returning how many (non-excluded) TGIs it
     /// contained, or -1 if the file could not be read as DBPF (in which case a warning is

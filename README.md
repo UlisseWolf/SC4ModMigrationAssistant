@@ -20,6 +20,10 @@ file format.
 - Moves (never deletes) duplicates to a folder of your choice, preserving the original
   subfolder structure
 - Cancel support for long-running scans
+- **Check sc4pac Catalog**: scans `075-my-plugins` / `895-my-overrides`, matches their TGIs
+  against the community-run [SC4 Prop Texture Catalog](https://github.com/noah-severyn/SC4PropTextureCatalog),
+  and lists any [sc4pac](https://sc4pac.github.io/) package that already provides that content —
+  so you can install it properly instead of keeping a loose manual copy
 
 ## Screenshots
 
@@ -31,6 +35,8 @@ file format.
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) to build, or the .NET 10 Desktop Runtime
   to run a published build
 - `csDBPF.dll` — see [Setup](#setup) below
+- Internet access the first time you use **Check sc4pac Catalog** (to download `Catalog.db`,
+  ~22 MB); the scan/move features work fully offline
 
 ## Setup
 
@@ -54,6 +60,16 @@ file format.
 3. **Move Duplicates** – choose a destination folder; all detected duplicates are moved there
    (with their relative subfolder structure preserved), freeing them from `Plugins` without
    permanently deleting anything.
+4. **Check sc4pac Catalog** – scans only `075-my-plugins` / `895-my-overrides` and checks their
+   TGIs against the SC4 Prop Texture Catalog (downloaded automatically on first use, then cached
+   locally). Any matching sc4pac package is listed with:
+   - **Copy ID** – copies the sc4pac package identifier (`group:package-name`)
+   - **Copy sc4pac add** – copies the ready-to-run `sc4pac add group:package-name` command
+   - **Open Page** – opens the mod's actual download/info page in your browser, when known
+
+   sc4pac itself doesn't expose a documented way to trigger an install from an external link, so
+   installing is a two-step, always-accurate process: copy the ID (or the command) here, then
+   paste it into sc4pac's own *Find Packages* search (or run the copied command in a terminal).
 
 ## How duplicate detection works
 
@@ -72,6 +88,25 @@ not a mistake.
 Duplicates are only ever compared against the main `Plugins` folder; files within
 `075-my-plugins` and `895-my-overrides` are never compared against each other.
 
+## How the sc4pac catalog check works
+
+`Catalog.db` is a SQLite database built and maintained by the
+[SC4 Prop Texture Catalog](https://github.com/noah-severyn/SC4PropTextureCatalog) project. It's
+downloaded directly from GitHub on first use and cached at
+`%LocalAppData%\SC4ModMigrationAssistant\Catalog.db` (delete that file to force a fresh
+download). It maps individual TGIs to the file they came from, and that file to the sc4pac
+package(s) that ship it.
+
+For every distinct TGI found in `075-my-plugins` / `895-my-overrides`, the app looks up whether
+that exact TGI (or, for entries where the catalog only records Group+Instance, that Group and
+Instance) belongs to a known package, then groups the results by package so you see one entry
+per mod rather than one per file.
+
+There's no publicly documented way to make an external link launch an install directly inside
+sc4pac, so results are given as a package ID / CLI command you paste into sc4pac (see
+[Usage](#usage)) plus, when available, a link to the mod's real page — not a fabricated
+"click to install" link that might not actually work.
+
 ## Configuration
 
 A few constants in `Services/DbpfScanService.cs` can be adjusted:
@@ -82,6 +117,9 @@ A few constants in `Services/DbpfScanService.cs` can be adjusted:
 | `Overrides075FolderName` / `Overrides895FolderName` | Override folder names to look for | `075-my-plugins`, `895-my-overrides` |
 | `ExcludedTgis` | TGIs excluded from comparison as non-content entries | DBPF Directory record, default LD entry |
 | `ProgressReportInterval` | How often the scan progress bar updates | every 100 files |
+
+The catalog download URL and local cache path are in
+`Services/CatalogDatabaseService.cs` (`CatalogDownloadUrl`, `CacheFilePath`).
 
 ## Project structure
 
@@ -94,10 +132,14 @@ Models/
   SourceCategory.cs
   TgiKey.cs
   ScannedFile.cs
+  CatalogScanFile.cs
+  Sc4pacMatch.cs
   LogColor.cs
 Services/
   DbpfScanService.cs
   DuplicateMoverService.cs
+  CatalogDatabaseService.cs
+  Sc4pacLookupService.cs
 libs/
 ```
 

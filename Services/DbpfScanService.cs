@@ -127,15 +127,11 @@ public sealed class DbpfScanService
 
         var result = new ScanResult();
 
-        var excludedRoots = new List<string>();
-        if (overrides075Path != null) excludedRoots.Add(overrides075Path);
-        if (overrides895Path != null) excludedRoots.Add(overrides895Path);
-
         // --- Pre-count files so the progress bar has a known maximum ---
         log.Invoke(new LogMessage("Counting files...", LogColor.Gray));
-        int total = CountFiles(pluginsRoot, excludedRoots, token);
-        if (overrides075Path != null) total += CountFiles(overrides075Path, new List<string>(), token);
-        if (overrides895Path != null) total += CountFiles(overrides895Path, new List<string>(), token);
+        int total = CountFiles(pluginsRoot, excludeOverrideFolders: true, token);
+        if (overrides075Path != null) total += CountFiles(overrides075Path, excludeOverrideFolders: false, token);
+        if (overrides895Path != null) total += CountFiles(overrides895Path, excludeOverrideFolders: false, token);
 
         int processed = 0;
         scanProgress.Report(new ScanProgress(0, total));
@@ -156,7 +152,7 @@ public sealed class DbpfScanService
         var mainTgiIndex = new HashSet<TgiKey>();
         var mainFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string filePath in EnumerateFilesExcluding(pluginsRoot, excludedRoots, token))
+        foreach (string filePath in EnumerateFilesExcluding(pluginsRoot, excludeOverrideFolders: true, token))
         {
             token.ThrowIfCancellationRequested();
 
@@ -258,8 +254,8 @@ public sealed class DbpfScanService
         var results = new List<CatalogScanFile>();
 
         int total = 0;
-        if (overrides075Path != null) total += CountFiles(overrides075Path, new List<string>(), token);
-        if (overrides895Path != null) total += CountFiles(overrides895Path, new List<string>(), token);
+        if (overrides075Path != null) total += CountFiles(overrides075Path, excludeOverrideFolders: false, token);
+        if (overrides895Path != null) total += CountFiles(overrides895Path, excludeOverrideFolders: false, token);
 
         int processed = 0;
         scanProgress.Report(new ScanProgress(0, total));
@@ -275,7 +271,7 @@ public sealed class DbpfScanService
 
         void ScanFolder(string folderPath, SourceCategory category)
         {
-            foreach (string filePath in EnumerateFilesExcluding(folderPath, new List<string>(), token))
+            foreach (string filePath in EnumerateFilesExcluding(folderPath, excludeOverrideFolders: false, token))
             {
                 token.ThrowIfCancellationRequested();
 
@@ -377,7 +373,7 @@ public sealed class DbpfScanService
         Action onFileProcessed,
         CancellationToken token)
     {
-        foreach (string filePath in EnumerateFilesExcluding(folderToScan, new List<string>(), token))
+        foreach (string filePath in EnumerateFilesExcluding(folderToScan, excludeOverrideFolders: false, token))
         {
             token.ThrowIfCancellationRequested();
 
@@ -462,14 +458,9 @@ public sealed class DbpfScanService
     /// Quickly counts the matching DBPF files under <paramref name="root"/>, without descending
     /// into any of the <paramref name="excludedRoots"/> subtrees (avoids wasted disk I/O).
     /// </summary>
-    private int CountFiles(string root, List<string> excludedRoots, CancellationToken token)
+    private static int CountFiles(string root, bool excludeOverrideFolders, CancellationToken token)
     {
-        int count = 0;
-        foreach (string _ in EnumerateFilesExcluding(root, excludedRoots, token))
-        {
-            count++;
-        }
-        return count;
+        return EnumerateFilesExcluding(root, excludeOverrideFolders, token).Count();
     }
 
     /// <summary>
@@ -478,67 +469,8 @@ public sealed class DbpfScanService
     /// filtering afterwards. This avoids needless disk I/O on large override folders and keeps a
     /// single bad subfolder (permissions, reparse points, etc.) from stopping the whole scan.
     /// </summary>
-    private static IEnumerable<string> EnumerateFilesExcluding(string root, List<string> excludedRoots, CancellationToken token)
+    private static IEnumerable<string> EnumerateFilesExcluding(string root, bool excludeOverrideFolders, CancellationToken token)
     {
-        var stack = new Stack<string>();
-        stack.Push(root);
-
-        while (stack.Count > 0)
-        {
-            token.ThrowIfCancellationRequested();
-            string current = stack.Pop();
-
-            IEnumerable<string> subDirs = Array.Empty<string>();
-            IEnumerable<string> files = Array.Empty<string>();
-
-            try
-            {
-                subDirs = Directory.EnumerateDirectories(current);
-                files = Directory.EnumerateFiles(current);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                continue;
-            }
-            catch (IOException)
-            {
-                continue;
-            }
-
-            foreach (string file in files)
-            {
-                if (HasDBPFFileExtension(file))
-                {
-                    yield return file;
-                }
-            }
-
-            foreach (string dir in subDirs)
-            {
-                bool excluded = excludedRoots.Any(ex => string.Equals(ex, dir, StringComparison.OrdinalIgnoreCase));
-                if (!excluded)
-                {
-                    stack.Push(dir);
-                }
-            }
-        }
-
-        static bool HasDBPFFileExtension(ReadOnlySpan<char> path)
-        {
-            // Using ReadOnlySpan<char> allows the file extension to be compared without
-            // allocating a new string.
-
-            ReadOnlySpan<char> fileExtension = Path.GetExtension(path);
-
-            // Files without an extension are treated as potential .sc4* files, there are released
-            // plugins that don't have a file extension. For example, Bosham Church by mintoes.
-            //
-            // The StartsWith comparison with a .sc4 file extension is an optimization to handle
-            // the .sc4desc, .sc4lot, and .sc4model file extensions with a single comparison.
-
-            return fileExtension.IsEmpty
-                || fileExtension.Equals(".dat", StringComparison.OrdinalIgnoreCase)
-                || fileExtension.StartsWith(".sc4", StringComparison.OrdinalIgnoreCase);
-        }
+        return new DbpfFileSystemService(root, excludeOverrideFolders, ignoreErrors: true, token);
     }
 }

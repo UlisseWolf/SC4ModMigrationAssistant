@@ -76,14 +76,6 @@ public sealed class ScanResult
 /// </remarks>
 public sealed class DbpfScanService
 {
-    /// <summary>
-    /// File extensions considered to be SimCity 4 DBPF files.
-    /// </summary>
-    public static readonly string[] DbpfExtensions =
-    {
-        ".dat", ".sc4lot", ".sc4model", ".sc4desc"
-    };
-
     public const string Overrides075FolderName = "075-my-plugins";
     public const string Overrides895FolderName = "895-my-overrides";
 
@@ -489,7 +481,7 @@ public sealed class DbpfScanService
     }
 
     /// <summary>
-    /// Recursively enumerates files matching <see cref="DbpfExtensions"/> under <paramref name="root"/>,
+    /// Recursively enumerates files matching known DBPF file extensions under <paramref name="root"/>,
     /// pruning any subtree listed in <paramref name="excludedRoots"/> instead of walking into it and
     /// filtering afterwards. This avoids needless disk I/O on large override folders and keeps a
     /// single bad subfolder (permissions, reparse points, etc.) from stopping the whole scan.
@@ -523,7 +515,7 @@ public sealed class DbpfScanService
 
             foreach (string file in files)
             {
-                if (DbpfExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                if (HasDBPFFileExtension(file))
                 {
                     yield return file;
                 }
@@ -537,6 +529,24 @@ public sealed class DbpfScanService
                     stack.Push(dir);
                 }
             }
+        }
+
+        static bool HasDBPFFileExtension(ReadOnlySpan<char> path)
+        {
+            // Using ReadOnlySpan<char> allows the file extension to be compared without
+            // allocating a new string.
+
+            ReadOnlySpan<char> fileExtension = Path.GetExtension(path);
+
+            // Files without an extension are treated as potential .sc4* files, there are released
+            // plugins that don't have a file extension. For example, Bosham Church by mintoes.
+            //
+            // The StartsWith comparison with a .sc4 file extension is an optimization to handle
+            // the .sc4desc, .sc4lot, and .sc4model file extensions with a single comparison.
+
+            return fileExtension.IsEmpty
+                || fileExtension.Equals(".dat", StringComparison.OrdinalIgnoreCase)
+                || fileExtension.StartsWith(".sc4", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

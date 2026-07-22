@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using csDBPF;
 using SC4ModMigrationAssistant.Models;
 
 namespace SC4ModMigrationAssistant.Services;
@@ -285,11 +284,9 @@ public sealed class DbpfScanService
                 HashSet<TgiKey> fileTgis;
                 try
                 {
-                    var dbpf = new DBPFFile(filePath);
                     fileTgis = new HashSet<TgiKey>();
-                    foreach (TGI tgi in dbpf.ListOfTGIs)
+                    foreach (TgiKey key in DbpfParsingService.EnumerateTgis(filePath))
                     {
-                        var key = new TgiKey(tgi.TypeID, tgi.GroupID, tgi.InstanceID);
                         if (!ExcludedTgis.Contains(key))
                         {
                             fileTgis.Add(key);
@@ -350,11 +347,9 @@ public sealed class DbpfScanService
     {
         try
         {
-            var dbpf = new DBPFFile(filePath);
             int count = 0;
-            foreach (TGI tgi in dbpf.ListOfTGIs)
+            foreach (TgiKey key in DbpfParsingService.EnumerateTgis(filePath))
             {
-                var key = new TgiKey(tgi.TypeID, tgi.GroupID, tgi.InstanceID);
                 if (ExcludedTgis.Contains(key))
                 {
                     continue;
@@ -393,15 +388,12 @@ public sealed class DbpfScanService
             int tgiCount = 0;
             try
             {
-                var dbpf = new DBPFFile(filePath);
-
                 // Only this one file's TGIs are held at a time (deduplicated), and only for the
                 // duration of this loop iteration - nothing is retained or cross-referenced
                 // against other override files.
                 var fileTgis = new HashSet<TgiKey>();
-                foreach (TGI tgi in dbpf.ListOfTGIs)
+                foreach (TgiKey key in DbpfParsingService.EnumerateTgis(filePath))
                 {
-                    var key = new TgiKey(tgi.TypeID, tgi.GroupID, tgi.InstanceID);
                     if (!ExcludedTgis.Contains(key))
                     {
                         fileTgis.Add(key);

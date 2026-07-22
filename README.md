@@ -4,8 +4,7 @@ A Windows desktop tool for SimCity 4 modders. It scans your `Plugins` folder and
 in your `075-my-plugins` and `895-my-overrides` folders that duplicate content already present
 elsewhere in `Plugins`, so you can safely move them out of the way.
 
-Built with WPF (.NET 10) and [csDBPF](https://github.com/noah-severyn/csDBPF) for reading SimCity 4's DBPF
-file format.
+Built with WPF (.NET 10).
 
 ## Features
 
@@ -34,17 +33,13 @@ file format.
 - Windows 10/11
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) to build, or the .NET 10 Desktop Runtime
   to run a published build
-- `csDBPF.dll` — see [Setup](#setup) below
 - Internet access the first time you use **Check sc4pac Catalog** (to download `Catalog.db`,
   ~22 MB); the scan/move features work fully offline
 
 ## Setup
 
 1. Clone this repository.
-2. Obtain `csDBPF.dll` and place it in the `libs/` folder at the project root, so you have
-   `libs/csDBPF.dll`. If it's available as a NuGet package instead, replace the `<Reference>`
-   entry in `SC4ModMigrationAssistant.csproj` with a `<PackageReference>`.
-3. Build and run:
+2. Build and run:
 
    ```bash
    dotnet build
@@ -141,7 +136,6 @@ Services/
   DuplicateMoverService.cs
   CatalogDatabaseService.cs
   Sc4pacLookupService.cs
-libs/
 ```
 
 ## Contributing
@@ -150,9 +144,7 @@ Issues and pull requests are welcome.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE) — the same license used by
-[csDBPF](https://github.com/noah-severyn/csDBPF), the library it depends on to read SimCity 4's
-DBPF file format.
+This project is licensed under the [MIT License](LICENSE)
 
 ## Disclaimer
 

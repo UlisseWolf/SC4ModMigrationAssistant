@@ -36,17 +36,4 @@
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!--
-      Reference to csDBPF.dll.
-      Copy csDBPF.dll (and optionally csDBPF.xml) into the "libs" folder next to
-      this .csproj file, or update the HintPath below to point to the DLL's
-      location on your system.
-    -->
-    <Reference Include="csDBPF">
-      <HintPath>libs\csDBPF.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-  </ItemGroup>
-
 </Project>

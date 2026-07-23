@@ -256,24 +256,26 @@ public sealed class CatalogDatabaseService
     /// Parses a catalog TGI string such as <c>"0x6534284a, 0x016a6904, 0x02c59b5f"</c> or, when
     /// the Type is implied by category, <c>"#, 0x96a006b0, 0xe8724b4f"</c>.
     /// </summary>
-    private static bool TryParseCatalogTgi(string text, out bool hasType, out uint type, out uint group, out uint instance)
+    private static bool TryParseCatalogTgi(ReadOnlySpan<char> text, out bool hasType, out uint type, out uint group, out uint instance)
     {
         hasType = false;
         type = group = instance = 0;
 
-        string[] parts = text.Split(", ", StringSplitOptions.None);
-        if (parts.Length != 3)
+        Span<Range> ranges = stackalloc Range[4];
+
+        int rangesCount = text.Split(ranges, ", ", StringSplitOptions.None);
+        if (rangesCount != 3)
         {
             return false;
         }
 
-        if (!TryParseHex(parts[1], out group) || !TryParseHex(parts[2], out instance))
+        if (!TryParseHex(text[ranges[1]], out group) || !TryParseHex(text[ranges[2]], out instance))
         {
             return false;
         }
 
-        string typePart = parts[0].Trim();
-        if (typePart == "#")
+        ReadOnlySpan<char> typePart = text[ranges[0]].Trim();
+        if (typePart.Length == 1 && typePart[0] == '#')
         {
             hasType = false;
             return true;
@@ -288,9 +290,9 @@ public sealed class CatalogDatabaseService
         return true;
     }
 
-    private static bool TryParseHex(string text, out uint value)
+    private static bool TryParseHex(ReadOnlySpan<char> text, out uint value)
     {
-        string s = text.Trim();
+        ReadOnlySpan<char> s = text.Trim();
         if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
         {
             s = s[2..];

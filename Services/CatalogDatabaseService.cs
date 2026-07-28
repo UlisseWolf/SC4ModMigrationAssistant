@@ -169,9 +169,12 @@ public sealed class CatalogDatabaseService
                     string name = reader.GetString(1);
                     string? author = reader.IsDBNull(2) ? null : reader.GetString(2);
                     string? websites = reader.IsDBNull(3) ? null : reader.GetString(3);
-                    string? firstUrl = string.IsNullOrWhiteSpace(websites)
-                        ? null
-                        : websites.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+                    string? firstUrl = null;
+                    if (!string.IsNullOrWhiteSpace(websites))
+                    {
+                        int firstSeparatorIndex = websites.IndexOf(';');
+                        firstUrl = firstSeparatorIndex != -1 ? websites.AsSpan(0, firstSeparatorIndex).Trim().ToString() : websites.Trim();
+                    }
 
                     packagesById[id] = new CatalogPackageInfo(name, author, firstUrl);
                 }

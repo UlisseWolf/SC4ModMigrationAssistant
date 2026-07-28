@@ -438,20 +438,8 @@ public sealed class DbpfScanService
     private static string? FindChildFolder(string parent, string folderName)
     {
         string direct = Path.Combine(parent, folderName);
-        if (Directory.Exists(direct))
-        {
-            return direct;
-        }
 
-        try
-        {
-            return Directory.EnumerateDirectories(parent)
-                .FirstOrDefault(d => string.Equals(Path.GetFileName(d), folderName, StringComparison.OrdinalIgnoreCase));
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Directory.Exists(direct) ? direct : null;
     }
 
     /// <summary>

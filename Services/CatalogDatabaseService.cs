@@ -72,22 +72,38 @@ public sealed class CatalogDatabaseService
     public async Task<string> EnsureCatalogDownloadedAsync(Action<LogMessage> log, CancellationToken token)
     {
         string path = CacheFilePath;
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        FileInfo fileInfo = new(path);
 
-        if (File.Exists(path) && new FileInfo(path).Length > 1_000_000)
+        if (fileInfo.Exists && fileInfo.Length > 1_000_000)
         {
-            double sizeMb = new FileInfo(path).Length / 1024.0 / 1024.0;
+            double sizeMb = fileInfo.Length / 1024.0 / 1024.0;
             log.Invoke(new LogMessage($"[sc4pac] Using cached SC4 Prop Texture Catalog ({sizeMb:F1} MB): {path}", LogColor.Gray));
             return path;
         }
-
+        
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         log.Invoke(new LogMessage("[sc4pac] Downloading SC4 Prop Texture Catalog (Catalog.db, ~22 MB) from GitHub...", LogColor.Gray));
 
         string tempPath = path + ".download";
         using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
+        using (var response = await http.GetAsync(CatalogDownloadUrl, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
         {
-            using Stream httpStream = await http.GetStreamAsync(CatalogDownloadUrl, token).ConfigureAwait(false);
-            using FileStream fileStream = File.Create(tempPath);
+            response.EnsureSuccessStatusCode();
+
+            HttpContent content = response.Content;
+            long contentLength = content.Headers.ContentLength ?? 0;
+
+            FileStreamOptions fileStreamOptions = new()
+            {
+                Mode = FileMode.Create,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                Options = FileOptions.Asynchronous,
+                PreallocationSize = contentLength > 0 ? contentLength : 0
+            };
+
+            using Stream httpStream = await content.ReadAsStreamAsync(token).ConfigureAwait(false);
+            using FileStream fileStream = new(tempPath, fileStreamOptions);
             await httpStream.CopyToAsync(fileStream, token).ConfigureAwait(false);
         }
 

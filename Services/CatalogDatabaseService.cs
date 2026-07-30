@@ -220,10 +220,13 @@ public sealed class CatalogDatabaseService
         {
             throw new InvalidOperationException($"{nameof(LoadIndexesAsync)} must be called before {nameof(LookupPackages)}.");
         }
+            
+        var fileIds = new List<int>();
+        var packageIds = new HashSet<int>();
 
         foreach (TgiKey tgi in tgis)
         {
-            var fileIds = new List<int>();
+            fileIds.Clear();
             if (_exactTgiToFileIds.TryGetValue(tgi, out List<int>? exactMatches))
             {
                 fileIds.AddRange(exactMatches);
@@ -237,7 +240,7 @@ public sealed class CatalogDatabaseService
                 continue;
             }
 
-            var packageIds = new HashSet<int>();
+            packageIds.Clear();
             foreach (int fileId in fileIds)
             {
                 if (_packageIdsByFileId.TryGetValue(fileId, out List<int>? pkgIds))

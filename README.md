@@ -6,6 +6,8 @@ elsewhere in `Plugins`, so you can safely move them out of the way.
 
 Built with WPF (.NET 10).
 
+*The tool was developed with Claude's support and under human supervision*
+
 ## Features
 
 - Recursively scans a Plugins folder for `.dat`, `.sc4lot`, `.sc4model`, and `.sc4desc` files

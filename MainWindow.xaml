@@ -6,6 +6,8 @@
 
     <Window.Resources>
 
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
         <!-- ===================== Synthwave dark palette ===================== -->
         <Color x:Key="BgTopColor">#FF1B1330</Color>
         <Color x:Key="BgBottomColor">#FF241B3A</Color>
@@ -187,6 +189,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Plugins folder selection -->
@@ -206,6 +209,7 @@
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
             <Button x:Name="BtnScan" Content="Scan TGIs" Width="160" Padding="6" Click="BtnScan_Click" IsEnabled="False" />
             <Button x:Name="BtnMoveDuplicates" Content="Move Duplicates" Width="150" Padding="6" Margin="10,0,0,0" Click="BtnMoveDuplicates_Click" IsEnabled="False" />
+            <Button x:Name="BtnCheckCatalog" Content="Check sc4pac Catalog" Width="170" Padding="6" Margin="10,0,0,0" Click="BtnCheckCatalog_Click" IsEnabled="False" />
             <Button x:Name="BtnCancel" Content="Cancel" Width="90" Padding="6" Margin="10,0,0,0" Click="BtnCancel_Click" IsEnabled="False" />
             <TextBlock x:Name="TxtStatus" VerticalAlignment="Center" Margin="20,0,0,0" Foreground="{StaticResource TextSecondaryBrush}" />
         </StackPanel>
@@ -255,8 +259,49 @@
             </ListBox>
         </Border>
 
+        <!-- sc4pac catalog matches: only visible after a "Check sc4pac Catalog" run finds packages -->
+        <Border Grid.Row="5" x:Name="CatalogResultsPanel" Visibility="Collapsed" Margin="0,10,0,0"
+                BorderBrush="{StaticResource AccentPinkBrush}" BorderThickness="1" CornerRadius="4" MaxHeight="220">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Text="sc4pac packages found for your override files:"
+                           Foreground="{StaticResource AccentPinkBrush}" FontWeight="SemiBold" Margin="8,6,8,4" />
+                <ListBox x:Name="CatalogResultsListBox" BorderThickness="0" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="8,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold" />
+                                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="11">
+                                        <Run Text="{Binding PackageId, Mode=OneWay}" />
+                                        <Run Text=" — " />
+                                        <Run Text="{Binding MatchingFiles.Count, Mode=OneWay}" />
+                                        <Run Text=" local file(s), " />
+                                        <Run Text="{Binding MatchedTgiCount, Mode=OneWay}" />
+                                        <Run Text=" TGI(s)" />
+                                    </TextBlock>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="Copy ID" Padding="6,2" Margin="6,0,0,0"
+                                        Click="BtnCopyPackageId_Click" Tag="{Binding}" />
+                                <Button Grid.Column="2" Content="Copy sc4pac add" Padding="6,2" Margin="6,0,0,0"
+                                        Click="BtnCopyAddCommand_Click" Tag="{Binding}" />
+                                <Button Grid.Column="3" Content="Open Page" Padding="6,2" Margin="6,0,0,0"
+                                        Click="BtnOpenPage_Click" Tag="{Binding}"
+                                        Visibility="{Binding HasPageUrl, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
         <!-- Legend -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,10,0,0">
+        <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,10,0,0">
             <TextBlock Text="Legend:" FontWeight="Bold" Margin="0,0,10,0" Foreground="{StaticResource TextPrimaryBrush}" />
             <TextBlock Text="■ Plugins" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,10,0" />
             <TextBlock Text="■ 075-my-plugins / 895-my-overrides" Foreground="{StaticResource AccentCyanBrush}" Margin="0,0,10,0" />

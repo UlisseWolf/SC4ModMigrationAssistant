@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using csDBPF;
 using SC4ModMigrationAssistant.Models;
 
 namespace SC4ModMigrationAssistant.Services;
@@ -76,14 +75,6 @@ public sealed class ScanResult
 /// </remarks>
 public sealed class DbpfScanService
 {
-    /// <summary>
-    /// File extensions considered to be SimCity 4 DBPF files.
-    /// </summary>
-    public static readonly string[] DbpfExtensions =
-    {
-        ".dat", ".sc4lot", ".sc4model", ".sc4desc"
-    };
-
     public const string Overrides075FolderName = "075-my-plugins";
     public const string Overrides895FolderName = "895-my-overrides";
 
@@ -136,15 +127,11 @@ public sealed class DbpfScanService
 
         var result = new ScanResult();
 
-        var excludedRoots = new List<string>();
-        if (overrides075Path != null) excludedRoots.Add(overrides075Path);
-        if (overrides895Path != null) excludedRoots.Add(overrides895Path);
-
         // --- Pre-count files so the progress bar has a known maximum ---
         log.Invoke(new LogMessage("Counting files...", LogColor.Gray));
-        int total = CountFiles(pluginsRoot, excludedRoots, token);
-        if (overrides075Path != null) total += CountFiles(overrides075Path, new List<string>(), token);
-        if (overrides895Path != null) total += CountFiles(overrides895Path, new List<string>(), token);
+        int total = CountFiles(pluginsRoot, excludeOverrideFolders: true, token);
+        if (overrides075Path != null) total += CountFiles(overrides075Path, excludeOverrideFolders: false, token);
+        if (overrides895Path != null) total += CountFiles(overrides895Path, excludeOverrideFolders: false, token);
 
         int processed = 0;
         scanProgress.Report(new ScanProgress(0, total));
@@ -165,7 +152,7 @@ public sealed class DbpfScanService
         var mainTgiIndex = new HashSet<TgiKey>();
         var mainFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string filePath in EnumerateFilesExcluding(pluginsRoot, excludedRoots, token))
+        foreach (string filePath in EnumerateFilesExcluding(pluginsRoot, excludeOverrideFolders: true, token))
         {
             token.ThrowIfCancellationRequested();
 
@@ -241,6 +228,112 @@ public sealed class DbpfScanService
     }
 
     /// <summary>
+    /// Scans only 075-my-plugins and 895-my-overrides (never the main Plugins folder) and
+    /// returns every file found together with its full, deduplicated set of TGIs. Used by the
+    /// "Check sc4pac Catalog" feature, which needs the actual TGIs (not just match counts) to
+    /// look them up in the SC4 Prop Texture Catalog.
+    /// </summary>
+    /// <param name="pluginsRoot">Full path of the Plugins folder (must contain the two override subfolders).</param>
+    /// <param name="log">Callback invoked (from a background thread) for every log line produced.</param>
+    /// <param name="scanProgress">Callback invoked at most every <see cref="ProgressReportInterval"/> files.</param>
+    /// <param name="token">Cancellation token, checked between files.</param>
+    public List<CatalogScanFile> ScanOverrideFoldersForCatalog(
+        string pluginsRoot,
+        Action<LogMessage> log,
+        IProgress<ScanProgress> scanProgress,
+        CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(pluginsRoot) || !Directory.Exists(pluginsRoot))
+        {
+            throw new DirectoryNotFoundException($"Plugins folder not found: {pluginsRoot}");
+        }
+
+        string? overrides075Path = FindChildFolder(pluginsRoot, Overrides075FolderName);
+        string? overrides895Path = FindChildFolder(pluginsRoot, Overrides895FolderName);
+
+        var results = new List<CatalogScanFile>();
+
+        int total = 0;
+        if (overrides075Path != null) total += CountFiles(overrides075Path, excludeOverrideFolders: false, token);
+        if (overrides895Path != null) total += CountFiles(overrides895Path, excludeOverrideFolders: false, token);
+
+        int processed = 0;
+        scanProgress.Report(new ScanProgress(0, total));
+
+        void OnFileProcessed()
+        {
+            processed++;
+            if (processed % ProgressReportInterval == 0 || processed == total)
+            {
+                scanProgress.Report(new ScanProgress(processed, total));
+            }
+        }
+
+        void ScanFolder(string folderPath, SourceCategory category)
+        {
+            foreach (string filePath in EnumerateFilesExcluding(folderPath, excludeOverrideFolders: false, token))
+            {
+                token.ThrowIfCancellationRequested();
+
+                string relativePath = Path.GetRelativePath(pluginsRoot, filePath);
+
+                HashSet<TgiKey> fileTgis;
+                try
+                {
+                    fileTgis = new HashSet<TgiKey>();
+                    foreach (TgiKey key in DbpfParsingService.EnumerateTgis(filePath))
+                    {
+                        if (!ExcludedTgis.Contains(key))
+                        {
+                            fileTgis.Add(key);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Invoke(new LogMessage($"[SKIP] {relativePath} - could not be read as DBPF ({ex.Message})", LogColor.Orange));
+                    OnFileProcessed();
+                    continue;
+                }
+
+                results.Add(new CatalogScanFile
+                {
+                    FullPath = filePath,
+                    RelativePath = relativePath,
+                    Category = category,
+                    Tgis = fileTgis
+                });
+
+                log.Invoke(new LogMessage($"{relativePath}  ({fileTgis.Count} TGI)", LogColor.Blue));
+                OnFileProcessed();
+            }
+        }
+
+        if (overrides075Path != null)
+        {
+            log.Invoke(new LogMessage($"--- Scanning {Overrides075FolderName} folder ---", LogColor.Gray));
+            ScanFolder(overrides075Path, SourceCategory.Overrides075);
+        }
+        else
+        {
+            log.Invoke(new LogMessage($"{Overrides075FolderName} folder not found, skipped.", LogColor.Orange));
+        }
+
+        if (overrides895Path != null)
+        {
+            log.Invoke(new LogMessage($"--- Scanning {Overrides895FolderName} folder ---", LogColor.Gray));
+            ScanFolder(overrides895Path, SourceCategory.Overrides895);
+        }
+        else
+        {
+            log.Invoke(new LogMessage($"{Overrides895FolderName} folder not found, skipped.", LogColor.Orange));
+        }
+
+        scanProgress.Report(new ScanProgress(total, total));
+        return results;
+    }
+
+    /// <summary>
     /// Reads a single DBPF file's TGIs directly into <paramref name="destination"/> (no
     /// intermediate per-file collection is kept), returning how many (non-excluded) TGIs it
     /// contained, or -1 if the file could not be read as DBPF (in which case a warning is
@@ -250,11 +343,9 @@ public sealed class DbpfScanService
     {
         try
         {
-            var dbpf = new DBPFFile(filePath);
             int count = 0;
-            foreach (TGI tgi in dbpf.ListOfTGIs)
+            foreach (TgiKey key in DbpfParsingService.EnumerateTgis(filePath))
             {
-                var key = new TgiKey(tgi.TypeID, tgi.GroupID, tgi.InstanceID);
                 if (ExcludedTgis.Contains(key))
                 {
                     continue;
@@ -282,7 +373,7 @@ public sealed class DbpfScanService
         Action onFileProcessed,
         CancellationToken token)
     {
-        foreach (string filePath in EnumerateFilesExcluding(folderToScan, new List<string>(), token))
+        foreach (string filePath in EnumerateFilesExcluding(folderToScan, excludeOverrideFolders: false, token))
         {
             token.ThrowIfCancellationRequested();
 
@@ -293,15 +384,12 @@ public sealed class DbpfScanService
             int tgiCount = 0;
             try
             {
-                var dbpf = new DBPFFile(filePath);
-
                 // Only this one file's TGIs are held at a time (deduplicated), and only for the
                 // duration of this loop iteration - nothing is retained or cross-referenced
                 // against other override files.
                 var fileTgis = new HashSet<TgiKey>();
-                foreach (TGI tgi in dbpf.ListOfTGIs)
+                foreach (TgiKey key in DbpfParsingService.EnumerateTgis(filePath))
                 {
-                    var key = new TgiKey(tgi.TypeID, tgi.GroupID, tgi.InstanceID);
                     if (!ExcludedTgis.Contains(key))
                     {
                         fileTgis.Add(key);
@@ -350,85 +438,27 @@ public sealed class DbpfScanService
     private static string? FindChildFolder(string parent, string folderName)
     {
         string direct = Path.Combine(parent, folderName);
-        if (Directory.Exists(direct))
-        {
-            return direct;
-        }
 
-        try
-        {
-            return Directory.EnumerateDirectories(parent)
-                .FirstOrDefault(d => string.Equals(Path.GetFileName(d), folderName, StringComparison.OrdinalIgnoreCase));
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Directory.Exists(direct) ? direct : null;
     }
 
     /// <summary>
     /// Quickly counts the matching DBPF files under <paramref name="root"/>, without descending
     /// into any of the <paramref name="excludedRoots"/> subtrees (avoids wasted disk I/O).
     /// </summary>
-    private int CountFiles(string root, List<string> excludedRoots, CancellationToken token)
+    private static int CountFiles(string root, bool excludeOverrideFolders, CancellationToken token)
     {
-        int count = 0;
-        foreach (string _ in EnumerateFilesExcluding(root, excludedRoots, token))
-        {
-            count++;
-        }
-        return count;
+        return EnumerateFilesExcluding(root, excludeOverrideFolders, token).Count();
     }
 
     /// <summary>
-    /// Recursively enumerates files matching <see cref="DbpfExtensions"/> under <paramref name="root"/>,
+    /// Recursively enumerates files matching known DBPF file extensions under <paramref name="root"/>,
     /// pruning any subtree listed in <paramref name="excludedRoots"/> instead of walking into it and
     /// filtering afterwards. This avoids needless disk I/O on large override folders and keeps a
     /// single bad subfolder (permissions, reparse points, etc.) from stopping the whole scan.
     /// </summary>
-    private static IEnumerable<string> EnumerateFilesExcluding(string root, List<string> excludedRoots, CancellationToken token)
+    private static IEnumerable<string> EnumerateFilesExcluding(string root, bool excludeOverrideFolders, CancellationToken token)
     {
-        var stack = new Stack<string>();
-        stack.Push(root);
-
-        while (stack.Count > 0)
-        {
-            token.ThrowIfCancellationRequested();
-            string current = stack.Pop();
-
-            IEnumerable<string> subDirs = Array.Empty<string>();
-            IEnumerable<string> files = Array.Empty<string>();
-
-            try
-            {
-                subDirs = Directory.EnumerateDirectories(current);
-                files = Directory.EnumerateFiles(current);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                continue;
-            }
-            catch (IOException)
-            {
-                continue;
-            }
-
-            foreach (string file in files)
-            {
-                if (DbpfExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
-                {
-                    yield return file;
-                }
-            }
-
-            foreach (string dir in subDirs)
-            {
-                bool excluded = excludedRoots.Any(ex => string.Equals(ex, dir, StringComparison.OrdinalIgnoreCase));
-                if (!excluded)
-                {
-                    stack.Push(dir);
-                }
-            }
-        }
+        return new DbpfFileSystemService(root, excludeOverrideFolders, ignoreErrors: true, token);
     }
 }

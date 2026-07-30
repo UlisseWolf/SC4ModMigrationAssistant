@@ -28,9 +28,9 @@ Built with WPF (.NET 10).
 
 ## Screenshots
 
-https://www.simtropolis.com/objects/screens/monthly_2026_07/A2.png.34f45269b6413555afef6de871bdf61b.png
+![scanning](https://www.simtropolis.com/objects/screens/monthly_2026_07/A2.png.34f45269b6413555afef6de871bdf61b.png "scanning plugins folder")
 
-https://www.simtropolis.com/objects/screens/monthly_2026_07/A1.jpg.cdbadc0167a7e636e06fe7fae8243e81.jpg
+![sc4pac](https://www.simtropolis.com/objects/screens/monthly_2026_07/A1.jpg.cdbadc0167a7e636e06fe7fae8243e81.jpg "find sc4pac")
 
 ## Requirements
 

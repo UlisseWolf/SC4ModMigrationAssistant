@@ -23,8 +23,10 @@ jobs:
         id: set
         shell: bash
         run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            TAG="${{ github.ref_name }}"
+          # $GITHUB_REF is refs/tags/<name> for a tag push or refs/heads/<name> for a branch
+          # push, and is always set - more reliable here than the github.ref_type context value.
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
             if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "Release tags must match vMAJOR.MINOR.PATCH, for example v0.4.0. Got: $TAG"
               exit 1
@@ -157,13 +159,10 @@ jobs:
           EOF
 
       - name: Remove any pre-existing release for this tag
-        # Not just "latest": if a release for this tag already exists - e.g. because it was
-        # created through the GitHub web UI (the "Draft a new release" flow creates the tag and
-        # the release together) rather than by pushing a tag via git - "gh release create"
-        # below would fail with "already exists". Deleting it first (a no-op if it doesn't
-        # exist) means the workflow always ends up with a single, correctly-versioned release
-        # regardless of how the tag was created. --cleanup-tag also removes the tag itself, but
-        # "gh release create ... --target <sha>" below recreates it at the right commit anyway.
+        # A no-op if no release exists yet for this tag. Ensures a clean, single release with
+        # correctly-versioned assets even if one already exists (e.g. an empty release created
+        # alongside the tag via the GitHub web UI). --cleanup-tag also removes the tag itself,
+        # but "gh release create ... --target <sha>" below recreates it at the right commit.
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release delete "${{ needs.prepare.outputs.release_tag }}" --repo "${{ github.repository }}" --yes --cleanup-tag || true

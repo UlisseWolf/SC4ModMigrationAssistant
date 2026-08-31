@@ -1,0 +1,111 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SC4ModMigrationAssistant.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <!-- ===================== Synthwave dark palette (shared app-wide) ===================== -->
+
+        <!-- Overriding SystemAccentColor makes FluentTheme's own accent-driven visuals
+             (selection highlights, focus rings, default checked states, etc.) pick up our
+             purple accent automatically, on top of the more specific overrides below. -->
+        <Color x:Key="SystemAccentColor">#FF7B2FF7</Color>
+
+        <Color x:Key="BgTopColor">#FF1B1330</Color>
+        <Color x:Key="BgBottomColor">#FF241B3A</Color>
+        <SolidColorBrush x:Key="PanelBrush" Color="#FF1B1626" />
+        <SolidColorBrush x:Key="PanelLightBrush" Color="#FF2A2140" />
+        <SolidColorBrush x:Key="PanelHoverBrush" Color="#FF352A52" />
+        <SolidColorBrush x:Key="BorderAccentBrush" Color="#FF7B2FF7" />
+        <SolidColorBrush x:Key="AccentPinkBrush" Color="#FFFF3CAC" />
+        <SolidColorBrush x:Key="AccentCyanBrush" Color="#FF22D3EE" />
+        <SolidColorBrush x:Key="AccentAmberBrush" Color="#FFFFB86C" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF1EAFB" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF9B8FC0" />
+        <SolidColorBrush x:Key="DisabledTextBrush" Color="#FF5C5478" />
+        <SolidColorBrush x:Key="DisabledBorderBrush" Color="#FF453A63" />
+
+        <LinearGradientBrush x:Key="WindowBackgroundBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="{StaticResource BgTopColor}" Offset="0" />
+            <GradientStop Color="{StaticResource BgBottomColor}" Offset="1" />
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="ProgressFillBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+            <GradientStop Color="#FFFF3CAC" Offset="0" />
+            <GradientStop Color="#FF7B2FF7" Offset="0.55" />
+            <GradientStop Color="#FF22D3EE" Offset="1" />
+        </LinearGradientBrush>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- ===================== Button ===================== -->
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{StaticResource PanelLightBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderAccentBrush}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentCyanBrush}" />
+        </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="BorderBrush" Value="{StaticResource AccentPinkBrush}" />
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Foreground" Value="{StaticResource DisabledTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource DisabledBorderBrush}" />
+        </Style>
+
+        <!-- ===================== TextBox ===================== -->
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource AccentCyanBrush}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource AccentPinkBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderAccentBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="3" />
+        </Style>
+
+        <!-- ===================== ProgressBar ===================== -->
+        <Style Selector="ProgressBar">
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderAccentBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Foreground" Value="{StaticResource ProgressFillBrush}" />
+        </Style>
+
+        <!-- ===================== ListBox / ListBoxItem (log + catalog results) ===================== -->
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="2,1" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{StaticResource PanelHoverBrush}" />
+        </Style>
+
+        <!-- ===================== Message dialog ===================== -->
+        <Style Selector="Window.dialog">
+            <Setter Property="Background" Value="{StaticResource WindowBackgroundBrush}" />
+        </Style>
+    </Application.Styles>
+</Application>

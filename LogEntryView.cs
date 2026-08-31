@@ -1,4 +1,4 @@
-using System.Windows.Media;
+using Avalonia.Media;
 
 namespace SC4ModMigrationAssistant;
 
@@ -9,5 +9,5 @@ namespace SC4ModMigrationAssistant;
 public sealed class LogEntryView
 {
     public required string Text { get; init; }
-    public required Brush Brush { get; init; }
+    public required IBrush Brush { get; init; }
 }

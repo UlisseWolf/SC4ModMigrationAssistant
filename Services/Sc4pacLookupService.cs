@@ -29,8 +29,11 @@ public sealed class Sc4pacLookupService
         string pluginsRoot,
         Action<LogMessage> log,
         IProgress<ScanProgress> scanProgress,
-        CancellationToken token)
+        CancellationToken token,
+        IReadOnlyCollection<string>? installedPackageIds = null)
     {
+        var installed = new HashSet<string>(installedPackageIds ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+
         List<CatalogScanFile> files = await Task.Run(
             () => _scanService.ScanOverrideFoldersForCatalog(pluginsRoot, log, scanProgress, token),
             token).ConfigureAwait(false);
@@ -67,9 +70,22 @@ public sealed class Sc4pacLookupService
             token).ConfigureAwait(false);
 
         var matchesById = new Dictionary<string, Sc4pacMatch>(StringComparer.OrdinalIgnoreCase);
+        int alreadyInstalledTgiCount = 0;
 
         foreach ((TgiKey tgi, List<CatalogPackageInfo> infos) in matches)
         {
+            // Some TGIs are provided by more than one catalog package (shared/duplicated
+            // resources across mods). If any of the candidates for this TGI is already
+            // installed via sc4pac, the content is already covered - skip every candidate for
+            // this TGI rather than only the installed one, since the alternative(s) are most
+            // likely the very false positives this filter exists to remove (the "same TGI,
+            // different mod" case), not a genuinely missing extra package.
+            if (installed.Count > 0 && infos.Any(i => installed.Contains(i.PackageId)))
+            {
+                alreadyInstalledTgiCount++;
+                continue;
+            }
+
             foreach (CatalogPackageInfo info in infos)
             {
                 if (!matchesById.TryGetValue(info.PackageId, out Sc4pacMatch? match))
@@ -102,6 +118,13 @@ public sealed class Sc4pacLookupService
             log.Invoke(new LogMessage(
                 $"[sc4pac] {match.DisplayName} ({match.PackageId}) - {match.MatchingFiles.Count} local file(s), {match.MatchedTgiCount} TGI(s)",
                 LogColor.Red));
+        }
+
+        if (installed.Count > 0)
+        {
+            log.Invoke(new LogMessage(
+                $"[sc4pac] Skipped {alreadyInstalledTgiCount} TGI(s) already covered by a package in sc4pac-plugins.json.",
+                LogColor.Gray));
         }
 
         log.Invoke(new LogMessage($"[sc4pac] Catalog check complete: {ordered.Count} package(s) found for {files.Count} local file(s).", LogColor.Gray));

@@ -22,7 +22,7 @@ public sealed record CatalogPackageInfo(string PackageId, string? Author, string
 /// from GitHub, caches it locally, and resolves TGIs to the sc4pac package(s) that provide them.
 /// </summary>
 /// <remarks>
-/// <para>Schema (verified directly against a real copy of Catalog.db - not guessed):</para>
+/// <para>Schema:</para>
 /// <list type="bullet">
 /// <item><c>TGIs(FileId, TGI, Category, Name)</c> - <c>TGI</c> is a TEXT column formatted as
 /// <c>"0xTTTTTTTT, 0xGGGGGGGG, 0xIIIIIIII"</c> (lowercase hex, comma-space separated). For
@@ -35,9 +35,8 @@ public sealed record CatalogPackageInfo(string PackageId, string? Author, string
 /// sc4pac package identifier itself, in <c>"group:package-name"</c> form. <c>Websites</c> is a
 /// <c>;</c>-separated list of the mod's real download/info page URL(s).</item>
 /// </list>
-/// <para>This was confirmed by opening an actual copy of Catalog.db provided directly - not
-/// inferred from documentation, which the upstream project does not publish for this database.
-/// If a future version of the catalog changes its schema, the queries in
+/// <para>The upstream project does not publish schema documentation for this database. If a
+/// future version of the catalog changes its schema, the queries in
 /// <see cref="LoadIndexesAsync"/> are the only place that needs updating.</para>
 /// </remarks>
 public sealed class CatalogDatabaseService
@@ -57,9 +56,7 @@ public sealed class CatalogDatabaseService
 
     // In-memory indexes, built once per app session (LoadIndexesAsync is a no-op if already
     // loaded) and reused across multiple "Check sc4pac Catalog" runs. Together these total a
-    // few tens of MB at most for the current catalog size (~260k TGI rows, ~5k packages),
-    // consistent with this app's low-memory design goals - nowhere near the size of the actual
-    // Plugins-folder TGI sets this app scans separately.
+    // few tens of MB at most for the current catalog size (~260k TGI rows, ~5k packages).
     private Dictionary<TgiKey, List<int>>? _exactTgiToFileIds;
     private Dictionary<(uint Group, uint Instance), List<int>>? _wildcardTypeToFileIds;
     private Dictionary<int, List<int>>? _packageIdsByFileId;

@@ -2,25 +2,44 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SC4ModMigrationAssistant</AssemblyName>
     <RootNamespace>SC4ModMigrationAssistant</RootNamespace>
-	<ApplicationIcon>Assets\SC4ModMigrationAssistant.ico</ApplicationIcon>
     <LangVersion>latest</LangVersion>
     <ApplicationTitle>SC4 Mod Migration Assistant</ApplicationTitle>
+    <Version>2.0.0</Version>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
 
     <!--
       Explicit GC settings: Workstation GC (not Server GC, which allocates one heap per CPU
       core and can use significantly more peak memory) with background (concurrent)
       collection enabled. This matters for machines with only 4-8 GB of RAM, which is an
-      explicit target for this application.
+      explicit target for this application, on every supported OS.
     -->
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Avalonia UI: cross-platform (Windows, Linux, macOS) desktop UI framework. -->
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <!-- Bundled cross-platform font so text renders identically on every OS, instead of
+         falling back to whatever default font each platform happens to have installed. -->
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+    <!--
+      Avalonia.Desktop pulls in Tmds.DBus.Protocol 0.20.0 (used for XDG desktop portal
+      integration on Linux - file/folder pickers, etc.), which is affected by CVE-2026-39959
+      (NU1903 warning on build; a local, unprivileged D-Bus peer could spoof signals or exhaust
+      file descriptors). Fixed upstream in 0.21.3, so it's pinned directly here until Avalonia's
+      own dependency updates. If "dotnet list package" (run with its vulnerable-packages flag)
+      still flags this after an update, bump the version below to whatever is currently newest.
+    -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Used to read Catalog.db (the SC4 Prop Texture Catalog) once downloaded from GitHub. -->
@@ -34,6 +53,10 @@
       whatever is currently newest.
     -->
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
 </Project>

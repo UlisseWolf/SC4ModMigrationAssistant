@@ -2,7 +2,7 @@ namespace SC4ModMigrationAssistant.Models;
 
 /// <summary>
 /// Semantic color of a log message. The UI (MainWindow) maps this to the actual
-/// Brush to use, so the scanning services stay decoupled from WPF.
+/// Brush to use, so the scanning services stay decoupled from any specific UI framework.
 /// </summary>
 public enum LogColor
 {

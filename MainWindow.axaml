@@ -1,0 +1,136 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SC4ModMigrationAssistant.MainWindow"
+        Icon="/Assets/SC4ModMigrationAssistant.ico"
+        Title="SC4 Mod Migration Assistant"
+        Width="1000" Height="700" MinWidth="750" MinHeight="520"
+        Background="{StaticResource WindowBackgroundBrush}">
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Plugins folder selection -->
+        <Grid Grid.Row="0" Margin="0,0,0,10" ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Grid.Column="0" Text="Plugins folder:" VerticalAlignment="Center" Margin="0,0,8,0"
+                       FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+            <TextBox Grid.Column="1" x:Name="TxtPluginsPath" IsReadOnly="True" VerticalContentAlignment="Center" Padding="4" Height="28" />
+            <Button Grid.Column="2" x:Name="BtnBrowse" Content="Browse..." Width="100" Margin="8,0,0,0" Click="BtnBrowse_Click" />
+        </Grid>
+
+        <!-- sc4pac-plugins.json selection: used to exclude already-installed packages (and
+             TGI-sharing "false duplicate" candidates) from the Check sc4pac Catalog results -->
+        <Grid Grid.Row="1" Margin="0,0,0,10" ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Grid.Column="0" Text="sc4pac-plugins.json:" VerticalAlignment="Center" Margin="0,0,8,0"
+                       FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+            <TextBox Grid.Column="1" x:Name="TxtSc4pacPluginsPath" IsReadOnly="True" VerticalContentAlignment="Center" Padding="4" Height="28" />
+            <Button Grid.Column="2" x:Name="BtnBrowseSc4pacPlugins" Content="Browse..." Width="100" Margin="8,0,0,0" Click="BtnBrowseSc4pacPlugins_Click" />
+        </Grid>
+
+        <!-- Action buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10" Spacing="10">
+            <Button x:Name="BtnScan" Content="Scan TGIs" Width="160" Click="BtnScan_Click" IsEnabled="False" />
+            <Button x:Name="BtnMoveDuplicates" Content="Move Duplicates" Width="150" Click="BtnMoveDuplicates_Click" IsEnabled="False" />
+            <Button x:Name="BtnCheckCatalog" Content="Check sc4pac Catalog" Width="170" Click="BtnCheckCatalog_Click" IsEnabled="False" />
+            <Button x:Name="BtnCancel" Content="Cancel" Width="90" Click="BtnCancel_Click" IsEnabled="False" />
+            <TextBlock x:Name="TxtStatus" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{StaticResource TextSecondaryBrush}" />
+        </StackPanel>
+
+        <!-- Scan progress bar -->
+        <Grid Grid.Row="3" Margin="0,0,0,6" ColumnDefinitions="80,*,Auto">
+            <TextBlock Grid.Column="0" Text="Scanning" VerticalAlignment="Center"
+                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+            <ProgressBar Grid.Column="1" x:Name="ProgressBarScan" Minimum="0" Maximum="100" Value="0" />
+            <TextBlock Grid.Column="2" x:Name="TxtProgressCount" Margin="10,0,0,0" VerticalAlignment="Center" Width="140"
+                       TextAlignment="Right" Foreground="{StaticResource TextSecondaryBrush}" />
+        </Grid>
+
+        <!-- Comparison progress bar: only visible while the TGI comparison step is running -->
+        <Grid Grid.Row="4" Margin="0,0,0,10" x:Name="CompareProgressPanel" IsVisible="False" ColumnDefinitions="80,*,Auto">
+            <TextBlock Grid.Column="0" Text="Comparing" VerticalAlignment="Center"
+                       Foreground="{StaticResource AccentCyanBrush}" FontSize="11" />
+            <ProgressBar Grid.Column="1" x:Name="ProgressBarCompare" Minimum="0" Maximum="100" Value="0"
+                         BorderBrush="{StaticResource AccentCyanBrush}" />
+            <TextBlock Grid.Column="2" x:Name="TxtCompareCount" Margin="10,0,0,0" VerticalAlignment="Center" Width="220"
+                       TextAlignment="Right" Foreground="{StaticResource AccentCyanBrush}" />
+        </Grid>
+
+        <!-- Log (virtualized list for performance with large plugin folders) -->
+        <Border Grid.Row="5" BorderBrush="{StaticResource BorderAccentBrush}" BorderThickness="1" CornerRadius="4">
+            <ListBox x:Name="LogListBox">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Text}" Foreground="{Binding Brush}"
+                                   FontFamily="Consolas,Menlo,Monospace" FontSize="12" TextWrapping="NoWrap" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- sc4pac catalog matches: only visible after a "Check sc4pac Catalog" run finds packages -->
+        <Border Grid.Row="6" x:Name="CatalogResultsPanel" IsVisible="False" Margin="0,10,0,0"
+                BorderBrush="{StaticResource AccentPinkBrush}" BorderThickness="1" CornerRadius="4" MaxHeight="220">
+            <DockPanel LastChildFill="True">
+                <DockPanel DockPanel.Dock="Top" Margin="8,6,8,4" LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Text="sc4pac packages found for your override files:"
+                               Foreground="{StaticResource AccentPinkBrush}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Button DockPanel.Dock="Right" x:Name="BtnExportCatalogJson" Content="Export sc4pac JSON"
+                            Padding="8,3" Click="BtnExportCatalogJson_Click" />
+                </DockPanel>
+                <ListBox x:Name="CatalogResultsListBox">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="8,4" ColumnDefinitions="*,Auto,Auto,Auto">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold" />
+                                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="11">
+                                        <Run Text="{Binding PackageId, Mode=OneWay}" />
+                                        <Run Text=" — " />
+                                        <Run Text="{Binding MatchingFiles.Count, Mode=OneWay}" />
+                                        <Run Text=" local file(s), " />
+                                        <Run Text="{Binding MatchedTgiCount, Mode=OneWay}" />
+                                        <Run Text=" TGI(s)" />
+                                    </TextBlock>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="Copy ID" Padding="6,2" Margin="6,0,0,0"
+                                        Click="BtnCopyPackageId_Click" Tag="{Binding}" />
+                                <Button Grid.Column="2" Content="Copy sc4pac add" Padding="6,2" Margin="6,0,0,0"
+                                        Click="BtnCopyAddCommand_Click" Tag="{Binding}" />
+                                <Button Grid.Column="3" Content="Open Page" Padding="6,2" Margin="6,0,0,0"
+                                        Click="BtnOpenPage_Click" Tag="{Binding}"
+                                        IsVisible="{Binding HasPageUrl}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Legend -->
+        <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,10,0,0" Spacing="10">
+            <TextBlock Text="Legend:" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+            <TextBlock Text="■ Plugins" Foreground="{StaticResource TextPrimaryBrush}" />
+            <TextBlock Text="■ 075-my-plugins / 895-my-overrides" Foreground="{StaticResource AccentCyanBrush}" />
+            <TextBlock Text="■ Duplicates" Foreground="{StaticResource AccentPinkBrush}" />
+            <TextBlock Text="■ Warnings/errors" Foreground="{StaticResource AccentAmberBrush}" />
+        </StackPanel>
+    </Grid>
+</Window>

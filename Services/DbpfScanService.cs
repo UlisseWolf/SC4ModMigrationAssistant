@@ -14,7 +14,7 @@ public sealed record LogMessage(string Text, LogColor Color);
 
 /// <summary>
 /// Progress of a scanning phase, expressed as items processed out of an approximate total.
-/// Reused for both the file-scanning phase and the (now very quick) TGI-comparison phase.
+/// Reused for both the file-scanning phase and the TGI-comparison phase.
 /// </summary>
 public sealed record ScanProgress(int Processed, int Total);
 
@@ -40,8 +40,8 @@ public sealed class ScanResult
 
 /// <summary>
 /// Scans the Plugins folder (and the 075-my-plugins / 895-my-overrides subfolders), reads
-/// the TGIs of every DBPF file via csDBPF, and flags genuine duplicates found inside the two
-/// override folders.
+/// the TGIs of every DBPF file, and flags genuine duplicates found inside the two override
+/// folders.
 /// </summary>
 /// <remarks>
 /// <para><b>Duplicate checking is scoped only to the main Plugins folder.</b> There is no
@@ -52,26 +52,25 @@ public sealed class ScanResult
 /// against the main Plugins folder is what actually indicates a redundant copy, so that is the
 /// only comparison performed.</para>
 ///
-/// <para><b>Excluded (non-content) TGIs - the main source of false positives:</b> some DBPF
-/// entries are structural/bookkeeping data whose TGI is, by design, identical (or drawn from a
-/// tiny, near-universal set of default values) across a huge number of otherwise unrelated
-/// files. Treating these as evidence of duplicated content produces large-scale false
-/// positives. Two are known and excluded via <see cref="ExcludedTgis"/>:
+/// <para><b>Excluded (non-content) TGIs:</b> some DBPF entries are structural/bookkeeping data
+/// whose TGI is, by design, identical (or drawn from a tiny, near-universal set of default
+/// values) across a huge number of otherwise unrelated files. Treating these as evidence of
+/// duplicated content produces false positives. Two are known and excluded via
+/// <see cref="ExcludedTgis"/>:
 /// <list type="bullet">
-/// <item>The Directory subfile (csDBPF's <c>DBPFTGI.DIRECTORY</c>): Type=0xE86B1EEF,
-/// Group=0xE86B1EEF, Instance=0x286B1F03 - present, with this exact TGI, in every compressed
-/// DBPF file.</item>
+/// <item>The DBPF Directory subfile: Type=0xE86B1EEF, Group=0xE86B1EEF, Instance=0x286B1F03 -
+/// present, with this exact TGI, in every compressed DBPF file.</item>
 /// <item>The common default LD (Lot Data) entry: Type=0x6BE74C60, Group=0x6BE74C60,
 /// Instance=0x00000001 - a near-universal default LD instance shared across a huge number of
 /// otherwise unrelated lot files.</item>
 /// </list>
-/// If further testing turns up other similarly universal, non-content TGIs causing false
-/// positives, add them to that same set.</para>
+/// If testing turns up other similarly universal, non-content TGIs causing false positives,
+/// add them to that same set.</para>
 ///
-/// <para><b>Memory design</b> (kept from the previous fix): the main Plugins folder is
-/// collapsed into a single flat <c>HashSet&lt;TgiKey&gt;</c> of unique TGIs with no per-file
-/// object retained; only the two override folders get lightweight per-file records; TGIs use
-/// the boxing-free <see cref="TgiKey"/> type.</para>
+/// <para><b>Memory design:</b> the main Plugins folder is collapsed into a single flat
+/// <c>HashSet&lt;TgiKey&gt;</c> of unique TGIs with no per-file object retained; only the two
+/// override folders get lightweight per-file records; TGIs use the boxing-free
+/// <see cref="TgiKey"/> type.</para>
 /// </remarks>
 public sealed class DbpfScanService
 {
@@ -108,7 +107,7 @@ public sealed class DbpfScanService
     /// <param name="pluginsRoot">Full path of the Plugins folder to scan.</param>
     /// <param name="log">Callback invoked (from a background thread) for every log line produced.</param>
     /// <param name="scanProgress">Callback invoked at most every <see cref="ProgressReportInterval"/> files while scanning.</param>
-    /// <param name="compareProgress">Callback invoked for the (now very quick) final comparison step.</param>
+    /// <param name="compareProgress">Callback invoked for the final comparison step.</param>
     /// <param name="token">Cancellation token, checked between files.</param>
     public ScanResult ScanPlugins(
         string pluginsRoot,

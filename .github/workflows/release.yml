@@ -156,11 +156,17 @@ jobs:
           ```
           EOF
 
-      - name: Replace rolling release
-        if: needs.prepare.outputs.release_tag == 'latest'
+      - name: Remove any pre-existing release for this tag
+        # Not just "latest": if a release for this tag already exists - e.g. because it was
+        # created through the GitHub web UI (the "Draft a new release" flow creates the tag and
+        # the release together) rather than by pushing a tag via git - "gh release create"
+        # below would fail with "already exists". Deleting it first (a no-op if it doesn't
+        # exist) means the workflow always ends up with a single, correctly-versioned release
+        # regardless of how the tag was created. --cleanup-tag also removes the tag itself, but
+        # "gh release create ... --target <sha>" below recreates it at the right commit anyway.
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release delete latest --repo "${{ github.repository }}" --yes --cleanup-tag || true
+        run: gh release delete "${{ needs.prepare.outputs.release_tag }}" --repo "${{ github.repository }}" --yes --cleanup-tag || true
 
       - name: Create release
         env:
